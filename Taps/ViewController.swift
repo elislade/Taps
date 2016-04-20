@@ -29,22 +29,17 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
         
         // Initalize and pre-buffer AVAudioPlayers
         for note in notes {
-            let player:AVAudioPlayer?
             let path = NSBundle.mainBundle().pathForResource(note, ofType: "caf")
             
             if let safePath = path {
-            
                 do {
-                    player = try AVAudioPlayer(contentsOfURL: NSURL(fileURLWithPath: safePath))
+                    let player = try AVAudioPlayer(contentsOfURL: NSURL(fileURLWithPath: safePath))
                     
-                    if let safePlayer = player {
-                        safePlayer.prepareToPlay()
-                        players.append(safePlayer)
-                    }
+                    player.prepareToPlay()
+                    players.append(player)
                     
                 }catch let error as NSError{
                     print(error)
@@ -53,28 +48,35 @@ class ViewController: UIViewController {
         }
     }
 
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
+
     }
     
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        
         for touch in touches {
             let point = touch.locationInView(self.view)
             
-            radiateCircle(fromPoint: point)
-            playNote(fromPoint: point)
+            radiateCircle(fromPoint: point, inView: self.view)
+            playNote(fromPoint: point, inView: self.view)
         }
     }
     
     
-    func radiateCircle(fromPoint point:CGPoint) {
+    func makeCirclePath(fromCenter point: CGPoint, withRadius radius: CGFloat) -> UIBezierPath {
+        let rect = CGRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius)
+        return UIBezierPath(roundedRect: rect, cornerRadius: radius)
+    }
+    
+    
+    func radiateCircle(fromPoint point:CGPoint, inView view: UIView) {
         
         let layer = CAShapeLayer()
         layer.fillColor = colors[colorIndex].CGColor
-        self.view.layer.addSublayer(layer)
+        view.layer.addSublayer(layer)
         
         colorIndex = colorIndex == (colors.count - 1) ? 0 : colorIndex + 1
         
@@ -87,8 +89,8 @@ class ViewController: UIViewController {
         
         //Size Animation
         let sizeAnim = CABasicAnimation(keyPath: "path")
-        sizeAnim.fromValue = UIBezierPath(roundedRect: CGRect(x: point.x - radius, y: point.y - radius, width: 2.0 * radius, height: 2.0 * radius) , cornerRadius: radius).CGPath
-        sizeAnim.toValue = UIBezierPath(roundedRect: CGRect(x: point.x - (radius * 3), y: point.y - (radius * 3), width: 6.0 * radius, height: 6.0 * radius) , cornerRadius: radius * 3).CGPath
+        sizeAnim.fromValue = makeCirclePath(fromCenter: point, withRadius: radius).CGPath
+        sizeAnim.toValue = makeCirclePath(fromCenter: point, withRadius: 3 * radius).CGPath
         
         //Opacity Animation
         let opacityAnim = CABasicAnimation(keyPath: "opacity")
@@ -102,18 +104,20 @@ class ViewController: UIViewController {
         animationGroup.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionEaseOut)
 
         layer.addAnimation(animationGroup, forKey: nil)
+        
         CATransaction.commit()
     }
     
-    func playNote(fromPoint point:CGPoint){
+    
+    func playNote(fromPoint point:CGPoint, inView view: UIView){
 
-        let step = self.view.frame.width / CGFloat(players.count)
+        let step = view.frame.width / CGFloat(players.count)
         let index = Int(floor( point.x / step))
-        print(index)
         
-        players[index].stop()
-        players[index].currentTime = 0.0
-        players[index].play()
+        if index >= 0 && index < players.count {
+            players[index].currentTime = 0.0
+            players[index].play()
+        }
     }
 
 }
