@@ -23,93 +23,77 @@ class ViewController: UIViewController {
         UIColor(red:0.73, green:0.28, blue:1.00, alpha:1.00),
         UIColor(red:1.00, green:0.28, blue:0.75, alpha:1.00)
     ]
-    
-    let notes = ["(30)WD3", "(31)BD3#", "(32)WE3", "(33)WF3", "(34)BF3#", "(35)WG3", "(36)BG3#", "(37)WA3"]
-    var players:[AVAudioPlayer] = []
+
+    var players:[AVAudioPlayer]!
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Initalize and pre-buffer AVAudioPlayers
-        for note in notes {
-            let path = NSBundle.mainBundle().pathForResource(note, ofType: "caf")
-            
-            if let safePath = path {
+        players = loadAudio(["(30)WD3", "(31)BD3#", "(32)WE3", "(33)WF3", "(34)BF3#", "(35)WG3", "(36)BG3#", "(37)WA3"])
+    }
+
+    func loadAudio(_ strings: [String]) -> [AVAudioPlayer] {
+        var players = [AVAudioPlayer]()
+        for string in strings {
+            if let path = Bundle.main.path(forResource: string, ofType: "caf") {
                 do {
-                    let player = try AVAudioPlayer(contentsOfURL: NSURL(fileURLWithPath: safePath))
+                    let player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
                     
                     player.prepareToPlay()
                     players.append(player)
                     
-                }catch let error as NSError{
+                } catch let error as NSError {
                     print(error)
                 }
             }
         }
-    }
-
-    
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
-
+        return players
     }
     
-    
-    override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
-            let point = touch.locationInView(self.view)
-            
-            radiateCircle(fromPoint: point, inView: self.view)
-            playNote(fromPoint: point, inView: self.view)
+            let point = touch.location(in: self.view)
+            radiateCircle(from: point, in: self.view)
+            playNote(from: point, in: self.view)
         }
     }
     
-    
-    func makeCirclePath(fromCenter point: CGPoint, withRadius radius: CGFloat) -> UIBezierPath {
-        let rect = CGRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius)
-        return UIBezierPath(roundedRect: rect, cornerRadius: radius)
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        for touch in touches {
+            let point = touch.location(in: self.view)
+            radiateCircle(from: point, in: self.view)
+        }
     }
     
-    
-    func radiateCircle(fromPoint point:CGPoint, inView view: UIView) {
-        
-        let layer = CAShapeLayer()
-        layer.fillColor = colors[colorIndex].CGColor
-        view.layer.addSublayer(layer)
-        
+    func makeCircle(at point:CGPoint, with size:CGFloat) -> CALayer {
+        let layer = CALayer()
+        layer.frame = CGRect(x: point.x - (size/2), y: point.y - (size/2), width: size, height: size)
+        layer.cornerRadius = size / 2
         colorIndex = colorIndex == (colors.count - 1) ? 0 : colorIndex + 1
+        layer.backgroundColor = colors[colorIndex].cgColor
+        return layer
+    }
+    
+    func radiateCircle(from point:CGPoint, in view: UIView) {
+        let circle = makeCircle(at: point, with: 100.0)
+        circle.opacity = 0
+        view.layer.addSublayer(circle)
         
-        let radius:CGFloat = 50.0
+        let sizeAnim = CABasicAnimation(keyPath: "transform.scale")
+        sizeAnim.fromValue = 1
+        sizeAnim.toValue = 2
         
-        CATransaction.begin()
-        CATransaction.setCompletionBlock({
-            layer.removeFromSuperlayer()
-        })
-        
-        //Size Animation
-        let sizeAnim = CABasicAnimation(keyPath: "path")
-        sizeAnim.fromValue = makeCirclePath(fromCenter: point, withRadius: radius).CGPath
-        sizeAnim.toValue = makeCirclePath(fromCenter: point, withRadius: 3 * radius).CGPath
-        
-        //Opacity Animation
         let opacityAnim = CABasicAnimation(keyPath: "opacity")
         opacityAnim.fromValue = 0.9
         opacityAnim.toValue = 0.0
-
-        //Animation Group
-        let animationGroup = CAAnimationGroup()
-        animationGroup.animations = [sizeAnim, opacityAnim]
-        animationGroup.duration = 1.0
-        animationGroup.timingFunction = CAMediaTimingFunction(name: kCAMediaTimingFunctionEaseOut)
-
-        layer.addAnimation(animationGroup, forKey: nil)
         
-        CATransaction.commit()
+        circle.transact(
+            duration:0.7,
+            animations: [opacityAnim, sizeAnim],
+            completion: { circle.removeFromSuperlayer() }
+        )
     }
     
-    
-    func playNote(fromPoint point:CGPoint, inView view: UIView){
+    func playNote(from point:CGPoint, in view: UIView){
 
         let step = view.frame.width / CGFloat(players.count)
         let index = Int(floor( point.x / step))
@@ -119,6 +103,4 @@ class ViewController: UIViewController {
             players[index].play()
         }
     }
-
 }
-
